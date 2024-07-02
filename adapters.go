@@ -20,6 +20,34 @@ const (
 	AdapterNtfy       AdapterType = 3
 )
 
+var adapterDetails = AdapterDetailMap{
+	AdapterGeneric: {
+		Name: "Generic Webhook",
+		Icon: "logos:webhooks",
+	},
+	AdapterMattermost: {
+		Name: "Mattermost",
+		Icon: "logos:mattermost-icon",
+	},
+	AdapterSlack: {
+		Name: "Slack",
+		Icon: "logos:slack-icon",
+	},
+	AdapterNtfy: {
+		Name:  "Ntfy",
+		Icon:  "simple-icons:ntfy",
+		Color: "#10b981",
+	},
+}
+
+type adapterDetail struct {
+	Name  string
+	Icon  string
+	Color string
+}
+
+type AdapterDetailMap map[AdapterType]adapterDetail
+
 type EventType string
 
 const (
