@@ -13,6 +13,9 @@ import (
 type AdapterInterface interface {
 	SendWebhook(input *Input, adapterType AdapterType) error
 	GetEndpoint(projectID, endpointID string) (*Endpoint, error)
+	GetAdapterDetails() AdapterDetailMap
+	UpdateEndpoint(projectID, endpointID string) error
+	TogglePause(projectID, endpointID string) error
 }
 
 type adapterService struct {
@@ -30,6 +33,10 @@ func NewAdapter(url, key, defaultProject string) *adapterService {
 		key:            key,
 		defaultProject: defaultProject,
 	}
+}
+
+func (ad *adapterService) GetAdapterDetails() AdapterDetailMap {
+	return adapterDetails
 }
 
 var sendWebhookMap = map[AdapterType]func(*Input) *webhook{
