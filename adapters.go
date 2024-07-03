@@ -18,6 +18,8 @@ const (
 	AdapterMattermost AdapterType = 1
 	AdapterSlack      AdapterType = 2
 	AdapterNtfy       AdapterType = 3
+
+	MaxTypeID int64 = int64(AdapterNtfy)
 )
 
 var adapterDetails = AdapterDetailMap{
