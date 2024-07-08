@@ -15,7 +15,8 @@ type AdapterInterface interface {
 	SendWebhook(input *Input, adapterType AdapterType) error
 	GetEndpoint(projectID, endpointID string) (*Endpoint, error)
 	GetAdapterDetails() AdapterDetailMap
-	UpdateEndpoint(projectID, endpointID string, params UpdateEndpointParams) (*UpdateEndpointResponse, error)
+	CreateEndpoint(projectID string, params UpsertEndpointParams) (*CreateEndpointResponse, error)
+	UpdateEndpoint(projectID, endpointID string, params UpsertEndpointParams) (*UpdateEndpointResponse, error)
 	TogglePause(projectID, endpointID string) (string, error)
 }
 
@@ -40,9 +41,77 @@ func (ad *adapterService) GetAdapterDetails() AdapterDetailMap {
 	return adapterDetails
 }
 
-type UpdateEndpointParams struct {
-	Name string `json:"name"`
-	URL  string `json:"url"`
+type UpsertEndpointParams struct {
+	Name               string `json:"name"`
+	URL                string `json:"url"`
+	AdvancedSignatures bool   `json:"advanced_signatures"`
+	AppID              string `json:"appID"` // deprecated but required
+	// Authentication
+	Description       string `json:"description"`
+	HttpTimeout       int64  `json:"http_timeout"`
+	IsDisabled        bool   `json:"is_disabled"`
+	OwnerID           string `json:"owner_id"`
+	RateLimit         int64  `json:"rate_limit"`
+	RateLimitDuration int64  `json:"rate_limit_duration"`
+	Secret            string `json:"secret"`
+	SlackWebhookURL   string `json:"slack_webhook_url"`
+	SupportEmail      string `json:"support_email"`
+}
+
+type CreateEndpointResponse struct {
+	Status  bool   `json:"status"`
+	Message string `json:"message"`
+	Data    struct {
+		Uid    string `json:"uid"`
+		Status string `json:"status"`
+	} `json:"data"`
+}
+
+func (ad *adapterService) CreateEndpoint(projectID string, params UpsertEndpointParams) (*CreateEndpointResponse, error) {
+	if projectID == "" {
+		projectID = ad.defaultProject
+	}
+
+	buff := new(bytes.Buffer)
+	err := json.NewEncoder(buff).Encode(params)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(
+		http.MethodPost,
+		fmt.Sprint(ad.url, "/api/v1/projects/", projectID, "/endpoints"),
+		buff,
+	)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", fmt.Sprint("Bearer ", ad.key))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{
+		Timeout: 2 * time.Second,
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode > http.StatusBadRequest {
+		return nil, fmt.Errorf("response code %d invalid", resp.StatusCode)
+	}
+
+	defer func(Body io.ReadCloser) {
+		if err := Body.Close(); err != nil {
+			slog.Error("error closing response body", "err", err)
+		}
+	}(resp.Body)
+
+	var response CreateEndpointResponse
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, err
+	}
+
+	return &response, nil
 }
 
 type UpdateEndpointResponse struct {
@@ -50,7 +119,7 @@ type UpdateEndpointResponse struct {
 	Message string `json:"message"`
 }
 
-func (ad *adapterService) UpdateEndpoint(projectID, endpointID string, params UpdateEndpointParams) (*UpdateEndpointResponse, error) {
+func (ad *adapterService) UpdateEndpoint(projectID, endpointID string, params UpsertEndpointParams) (*UpdateEndpointResponse, error) {
 	if projectID == "" {
 		projectID = ad.defaultProject
 	}
@@ -79,7 +148,7 @@ func (ad *adapterService) UpdateEndpoint(projectID, endpointID string, params Up
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode >= 500 {
+	if resp.StatusCode > http.StatusBadRequest {
 		return nil, fmt.Errorf("response code %d invalid", resp.StatusCode)
 	}
 
