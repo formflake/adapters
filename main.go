@@ -16,7 +16,8 @@ type AdapterInterface interface {
 	GetEndpoint(projectID, endpointID string) (*Endpoint, error)
 	GetAdapterDetails() AdapterDetailMap
 	CreateEndpoint(projectID string, params UpsertEndpointParams) (*CreateEndpointResponse, error)
-	UpdateEndpoint(projectID, endpointID string, params UpsertEndpointParams) (*UpdateEndpointResponse, error)
+	UpdateEndpoint(projectID, endpointID string, params UpsertEndpointParams) (*EndpointResponse, error)
+	DeleteEndpoint(projectID, endpointID string) (*EndpointResponse, error)
 	TogglePause(projectID, endpointID string) (string, error)
 }
 
@@ -114,12 +115,12 @@ func (ad *adapterService) CreateEndpoint(projectID string, params UpsertEndpoint
 	return &response, nil
 }
 
-type UpdateEndpointResponse struct {
+type EndpointResponse struct {
 	Status  bool   `json:"status"`
 	Message string `json:"message"`
 }
 
-func (ad *adapterService) UpdateEndpoint(projectID, endpointID string, params UpsertEndpointParams) (*UpdateEndpointResponse, error) {
+func (ad *adapterService) UpdateEndpoint(projectID, endpointID string, params UpsertEndpointParams) (*EndpointResponse, error) {
 	if projectID == "" {
 		projectID = ad.defaultProject
 	}
@@ -158,12 +159,52 @@ func (ad *adapterService) UpdateEndpoint(projectID, endpointID string, params Up
 		}
 	}(resp.Body)
 
-	var response UpdateEndpointResponse
+	var response EndpointResponse
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return nil, err
 	}
 
 	return &response, nil
+}
+
+func (ad *adapterService) DeleteEndpoint(projectID, endpointID string) (*EndpointResponse, error) {
+	if projectID == "" {
+		projectID = ad.defaultProject
+	}
+
+	req, err := http.NewRequest(
+		http.MethodDelete,
+		fmt.Sprint(ad.url, "/api/v1/projects/", projectID, "/endpoints/", endpointID),
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", fmt.Sprint("Bearer ", ad.key))
+
+	client := &http.Client{
+		Timeout: 2 * time.Second,
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("response code %d invalid", resp.StatusCode)
+	}
+
+	defer func(Body io.ReadCloser) {
+		if err := Body.Close(); err != nil {
+			slog.Error("error closing response body", "err", err)
+		}
+	}(resp.Body)
+
+	var endpoint EndpointResponse
+	if err := json.NewDecoder(resp.Body).Decode(&endpoint); err != nil {
+		return nil, err
+	}
+
+	return &endpoint, nil
 }
 
 func (ad *adapterService) TogglePause(projectID, endpointID string) (string, error) {
