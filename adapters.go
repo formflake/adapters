@@ -117,7 +117,18 @@ func mattermost(input *Input) *webhook {
 }
 
 type slackData struct {
-	Test string `json:"test"`
+	Text   string              `json:"text"`
+	Blocks []slackMessageBlock `json:"blocks"`
+}
+
+type slackMessageBlock struct {
+	Type string                `json:"type"`
+	Text slackMessageBlockText `json:"text"`
+}
+
+type slackMessageBlockText struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
 }
 
 func slack(input *Input) *webhook {
@@ -126,7 +137,16 @@ func slack(input *Input) *webhook {
 			EventType:  input.EventType,
 			EndpointID: input.EndpointID,
 			Data: slackData{
-				Test: input.Title,
+				Text: input.Title,
+				// Blocks: []slackMessageBlock{ // TODO
+				// 	{
+				// 		Type: "section",
+				// 		Text: slackMessageBlockText{
+				// 			Type: "mrkdwn",
+				// 			Text: input.Message,
+				// 		},
+				// 	},
+				// },
 			},
 		},
 		nil,
