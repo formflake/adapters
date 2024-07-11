@@ -1,88 +1,9 @@
 package integrations
 
-import (
-	"bytes"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"io"
-	"log/slog"
-	"net/http"
-	"strconv"
-)
-
-type IntegrationType int64
-
-const (
-	IntegrationGeneric    IntegrationType = 0
-	IntegrationMattermost IntegrationType = 1
-	IntegrationSlack      IntegrationType = 2
-	IntegrationNtfy       IntegrationType = 3
-
-	MaxTypeID int64 = int64(IntegrationNtfy)
-)
-
-var adapterDetails = IntegrationDetailMap{
-	IntegrationGeneric: {
-		Name: "Generic Webhook",
-		Icon: "logos:webhooks",
-	},
-	IntegrationMattermost: {
-		Name: "Mattermost",
-		Icon: "logos:mattermost-icon",
-	},
-	IntegrationSlack: {
-		Name: "Slack",
-		Icon: "logos:slack-icon",
-	},
-	IntegrationNtfy: {
-		Name:  "Ntfy",
-		Icon:  "simple-icons:ntfy",
-		Color: "#10b981",
-	},
-}
-
-type adapterDetail struct {
-	Name  string
-	Icon  string
-	Color string
-}
-
-type IntegrationDetailMap map[IntegrationType]adapterDetail
-
-type EventType string
-
-const (
-	EventFormFinished EventType = "form.finished"
-)
-
-type Input struct {
-	Title      string
-	Message    string
-	Project    string // optional
-	EndpointID string
-	EventType  EventType
-}
-
-type webhook struct {
-	data    webhookData
-	headers map[string][]string
-}
-
-type webhookData struct {
-	Data       interface{} `json:"data"`
-	EventType  EventType   `json:"event_type"`
-	EndpointID string      `json:"endpoint_id"`
-}
-
-func generic(input *Input) *webhook {
-	return &webhook{
-		webhookData{
-			EventType:  input.EventType,
-			EndpointID: input.EndpointID,
-			Data:       input.Message,
-		},
-		nil,
+func generic(input *Input) *Webhook {
+	return &Webhook{
+		Data:    input.Message,
+		Headers: nil,
 	}
 }
 
@@ -94,25 +15,21 @@ type mattermostData struct {
 	} `json:"attachments"`
 }
 
-func mattermost(input *Input) *webhook {
-	return &webhook{
-		webhookData{
-			EventType:  input.EventType,
-			EndpointID: input.EndpointID,
-			Data: mattermostData{
-				Text: input.Title,
-				Attachments: []struct {
-					Text  string "json:\"text\""
-					Color string "json:\"color\""
-				}{
-					{
-						Color: "#1B5495",
-						Text:  input.Message,
-					},
+func mattermost(input *Input) *Webhook {
+	return &Webhook{
+		Data: mattermostData{
+			Text: input.Title,
+			Attachments: []struct {
+				Text  string "json:\"text\""
+				Color string "json:\"color\""
+			}{
+				{
+					Color: "#1B5495",
+					Text:  input.Message,
 				},
 			},
 		},
-		nil,
+		Headers: nil,
 	}
 }
 
@@ -131,83 +48,29 @@ type slackMessageBlockText struct {
 	Text string `json:"text"`
 }
 
-func slack(input *Input) *webhook {
-	return &webhook{
-		webhookData{
-			EventType:  input.EventType,
-			EndpointID: input.EndpointID,
-			Data: slackData{
-				Text: input.Title,
-				// Blocks: []slackMessageBlock{ // TODO
-				// 	{
-				// 		Type: "section",
-				// 		Text: slackMessageBlockText{
-				// 			Type: "mrkdwn",
-				// 			Text: input.Message,
-				// 		},
-				// 	},
-				// },
-			},
+func slack(input *Input) *Webhook {
+	return &Webhook{
+		Data: slackData{
+			Text: input.Title,
+			// Blocks: []slackMessageBlock{ // TODO
+			// 	{
+			// 		Type: "section",
+			// 		Text: slackMessageBlockText{
+			// 			Type: "mrkdwn",
+			// 			Text: input.Message,
+			// 		},
+			// 	},
+			// },
 		},
-		nil,
+		Headers: nil,
 	}
 }
 
-func ntfy(input *Input) *webhook {
-	return &webhook{
-		webhookData{
-			EventType:  input.EventType,
-			EndpointID: input.EndpointID,
-			Data:       input.Message,
-		},
-		map[string][]string{
+func ntfy(input *Input) *Webhook {
+	return &Webhook{
+		Data: input.Message,
+		Headers: map[string][]string{
 			"X-Title": {input.Title},
 		},
 	}
-}
-
-func (ad *adapterService) send(webhook *webhook, project string) error {
-	if webhook == nil {
-		return errors.New("webhook data undefined")
-	}
-
-	jsonBytes, err := json.Marshal(webhook.data)
-	if err != nil {
-		return err
-	}
-
-	req, err := http.NewRequest(
-		http.MethodPost,
-		fmt.Sprint(ad.url, "/api/v1/projects/", project, "/events"),
-		bytes.NewBuffer(jsonBytes),
-	)
-	if err != nil {
-		return err
-	}
-	if webhook.headers != nil {
-		req.Header = map[string][]string(webhook.headers)
-	}
-	req.Header.Set("Authorization", fmt.Sprint("Bearer ", ad.key))
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func(Body io.ReadCloser) {
-		if err := Body.Close(); err != nil {
-			slog.Error("error closing response body", "err", err)
-		}
-	}(resp.Body)
-
-	if body, err := io.ReadAll(resp.Body); err == nil {
-		slog.Info(string(body)) // TODO
-	}
-
-	if resp.StatusCode >= 400 {
-		return errors.New("error status code " + strconv.FormatInt(int64(resp.StatusCode), 10))
-	}
-
-	return nil
 }
