@@ -1,4 +1,4 @@
-package adapters
+package integrations
 
 import (
 	"bytes"
@@ -11,10 +11,10 @@ import (
 	"time"
 )
 
-type AdapterInterface interface {
-	SendWebhook(input *Input, adapterType AdapterType) error
+type IntegrationInterface interface {
+	SendWebhook(input *Input, adapterType IntegrationType) error
 	GetEndpoint(projectID, endpointID string) (*Endpoint, error)
-	GetAdapterDetails() AdapterDetailMap
+	GetIntegrationDetails() IntegrationDetailMap
 	CreateEndpoint(projectID string, params UpsertEndpointParams) (*CreateEndpointResponse, error)
 	UpdateEndpoint(projectID, endpointID string, params UpsertEndpointParams) (*EndpointResponse, error)
 	DeleteEndpoint(projectID, endpointID string) (*EndpointResponse, error)
@@ -22,15 +22,15 @@ type AdapterInterface interface {
 }
 
 type adapterService struct {
-	AdapterInterface
+	IntegrationInterface
 	url            string
 	key            string
 	defaultProject string
 }
 
-var _ AdapterInterface = &adapterService{}
+var _ IntegrationInterface = &adapterService{}
 
-func NewAdapter(url, key, defaultProject string) *adapterService {
+func NewIntegration(url, key, defaultProject string) *adapterService {
 	return &adapterService{
 		url:            url,
 		key:            key,
@@ -38,7 +38,7 @@ func NewAdapter(url, key, defaultProject string) *adapterService {
 	}
 }
 
-func (ad *adapterService) GetAdapterDetails() AdapterDetailMap {
+func (ad *adapterService) GetIntegrationDetails() IntegrationDetailMap {
 	return adapterDetails
 }
 
@@ -247,14 +247,14 @@ func (ad *adapterService) TogglePause(projectID, endpointID string) (string, err
 	return endpoint.Data.Status, nil
 }
 
-var sendWebhookMap = map[AdapterType]func(*Input) *webhook{
-	AdapterGeneric:    generic,
-	AdapterMattermost: mattermost,
-	AdapterSlack:      slack,
-	AdapterNtfy:       ntfy,
+var sendWebhookMap = map[IntegrationType]func(*Input) *webhook{
+	IntegrationGeneric:    generic,
+	IntegrationMattermost: mattermost,
+	IntegrationSlack:      slack,
+	IntegrationNtfy:       ntfy,
 }
 
-func (ad *adapterService) SendWebhook(input *Input, adapterType AdapterType) error {
+func (ad *adapterService) SendWebhook(input *Input, adapterType IntegrationType) error {
 	if input == nil {
 		return errors.New("input not defined")
 	}

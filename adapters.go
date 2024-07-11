@@ -1,4 +1,4 @@
-package adapters
+package integrations
 
 import (
 	"bytes"
@@ -11,31 +11,31 @@ import (
 	"strconv"
 )
 
-type AdapterType int64
+type IntegrationType int64
 
 const (
-	AdapterGeneric    AdapterType = 0
-	AdapterMattermost AdapterType = 1
-	AdapterSlack      AdapterType = 2
-	AdapterNtfy       AdapterType = 3
+	IntegrationGeneric    IntegrationType = 0
+	IntegrationMattermost IntegrationType = 1
+	IntegrationSlack      IntegrationType = 2
+	IntegrationNtfy       IntegrationType = 3
 
-	MaxTypeID int64 = int64(AdapterNtfy)
+	MaxTypeID int64 = int64(IntegrationNtfy)
 )
 
-var adapterDetails = AdapterDetailMap{
-	AdapterGeneric: {
+var adapterDetails = IntegrationDetailMap{
+	IntegrationGeneric: {
 		Name: "Generic Webhook",
 		Icon: "logos:webhooks",
 	},
-	AdapterMattermost: {
+	IntegrationMattermost: {
 		Name: "Mattermost",
 		Icon: "logos:mattermost-icon",
 	},
-	AdapterSlack: {
+	IntegrationSlack: {
 		Name: "Slack",
 		Icon: "logos:slack-icon",
 	},
-	AdapterNtfy: {
+	IntegrationNtfy: {
 		Name:  "Ntfy",
 		Icon:  "simple-icons:ntfy",
 		Color: "#10b981",
@@ -48,7 +48,7 @@ type adapterDetail struct {
 	Color string
 }
 
-type AdapterDetailMap map[AdapterType]adapterDetail
+type IntegrationDetailMap map[IntegrationType]adapterDetail
 
 type EventType string
 
