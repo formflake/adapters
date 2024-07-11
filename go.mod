@@ -1,3 +1,3 @@
-module github.com/formflake/adapters
+module github.com/formflake/integrations
 
 go 1.22.2
