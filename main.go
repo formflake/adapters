@@ -9,7 +9,11 @@ type IntegrationInterface interface {
 	GetIntegrationDetails() IntegrationDetailMap
 }
 
-type adapterService struct{}
+type adapterService struct {
+	IntegrationInterface
+}
+
+type adapterData struct{}
 
 var _ IntegrationInterface = &adapterService{}
 
@@ -67,10 +71,12 @@ var adapterDetails = IntegrationDetailMap{
 }
 
 func NewIntegration() *adapterService {
-	return &adapterService{}
+	return &adapterService{
+		&adapterData{},
+	}
 }
 
-func (ad *adapterService) GetIntegrationDetails() IntegrationDetailMap {
+func (ad *adapterData) GetIntegrationDetails() IntegrationDetailMap {
 	return adapterDetails
 }
 
@@ -81,7 +87,7 @@ var sendWebhookMap = map[IntegrationType]func(*Input) *Webhook{
 	IntegrationNtfy:       ntfy,
 }
 
-func (ad *adapterService) MapWebhook(input *Input, adapterType IntegrationType) (*Webhook, error) {
+func (ad *adapterData) MapWebhook(input *Input, adapterType IntegrationType) (*Webhook, error) {
 	if input == nil {
 		return nil, errors.New("input not defined")
 	}
