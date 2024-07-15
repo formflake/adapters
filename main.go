@@ -5,7 +5,7 @@ import (
 )
 
 type IntegrationInterface interface {
-	MapWebhook(input *Input, adapterType IntegrationType) (*Webhook, error)
+	MapWebhook(input interface{}, adapterType IntegrationType, eventType EventType) (*Webhook, error)
 	GetIntegrationDetails() IntegrationDetailMap
 }
 
@@ -27,9 +27,44 @@ type IntegrationDetailMap map[IntegrationType]adapterDetail
 
 type IntegrationType int64
 
-type Input struct {
-	Title   string
-	Message string
+type InputFormFinished struct {
+	LinkText        string
+	LinkUrl         string
+	Title           string
+	FormTranslation string
+	Nodes           []InputFormFinishedNode
+	Contact         *InputContactNode
+}
+
+type InputFormFinishedNode struct {
+	Relation        int64
+	NodeType        int64
+	NodeTranslation string
+	ContactNode     InputContactNode
+	SelectNode      InputSelectNode
+	RatingNode      InputRatingNode
+}
+
+type InputContactNode struct {
+	Firstname string `json:"firstname"`
+	Lastname  string `json:"lastname"`
+	Email     string `json:"email"`
+	Company   string `json:"company"`
+	Phone     string `json:"phone"`
+	Details   string `json:"details"`
+}
+
+type InputSelectNode struct {
+	Label    string   `json:"label"`
+	Selected []string `json:"selected"`
+}
+
+type InputRatingNode struct {
+	Label    string `json:"label"`
+	Elements []struct {
+		Label string `json:"label"`
+		Value int64  `json:"value"`
+	} `json:"elements"`
 }
 
 type EventType string
@@ -45,6 +80,7 @@ const (
 	IntegrationSlack      IntegrationType = 2
 	IntegrationNtfy       IntegrationType = 3
 
+	MinTypeID int64 = int64(IntegrationGeneric)
 	MaxTypeID int64 = int64(IntegrationNtfy)
 
 	EventFormFinished EventType = "form.finished"
@@ -80,19 +116,19 @@ func (ad *adapterData) GetIntegrationDetails() IntegrationDetailMap {
 	return adapterDetails
 }
 
-var sendWebhookMap = map[IntegrationType]func(*Input) *Webhook{
-	IntegrationGeneric:    generic,
+var sendWebhookMap = map[IntegrationType]func(input interface{}, eventType EventType) (*Webhook, error){
+	// IntegrationGeneric:    generic, // FIXME
 	IntegrationMattermost: mattermost,
-	IntegrationSlack:      slack,
-	IntegrationNtfy:       ntfy,
+	// IntegrationSlack:      slack,
+	// IntegrationNtfy:       ntfy,
 }
 
-func (ad *adapterData) MapWebhook(input *Input, adapterType IntegrationType) (*Webhook, error) {
+func (ad *adapterData) MapWebhook(input interface{}, adapterType IntegrationType, eventType EventType) (*Webhook, error) {
 	if input == nil {
 		return nil, errors.New("input not defined")
 	}
 	if sendWebhookFunc, ok := sendWebhookMap[adapterType]; ok {
-		return sendWebhookFunc(input), nil
+		return sendWebhookFunc(input, eventType)
 	} else {
 		return nil, errors.New("function not defined")
 	}
