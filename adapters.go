@@ -25,9 +25,12 @@ type mattermostData struct {
 }
 
 func mattermost(input interface{}, eventType EventType) (*Webhook, error) {
+	if input == nil {
+		return nil, errors.New("input undefined")
+	}
 	switch eventType {
 	case EventFormFinished:
-		if data, ok := input.(InputFormFinished); ok {
+		if data, ok := input.(*InputFormFinished); ok {
 			message := &strings.Builder{}
 			md := markdown.NewMarkdown(message).
 				H2(data.FormTranslation)
@@ -82,12 +85,12 @@ func mattermost(input interface{}, eventType EventType) (*Webhook, error) {
 				Headers: nil,
 			}, nil
 		} else {
-			slog.Warn("Type assertion InputFormFinished error")
+			return nil, errors.New("type assertion failed for InputFormFinished")
 		}
 	default:
-		slog.Warn("Unknown Event in adapters", "eventType", eventType)
+		slog.Warn("unknown event in adapters", "eventType", eventType)
+		return nil, errors.New("unknown event type")
 	}
-	return nil, errors.New("unknown event type")
 }
 
 // type slackData struct {

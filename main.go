@@ -2,6 +2,7 @@ package integrations
 
 import (
 	"errors"
+	"fmt"
 )
 
 type IntegrationInterface interface {
@@ -130,6 +131,6 @@ func (ad *adapterData) MapWebhook(input interface{}, adapterType IntegrationType
 	if sendWebhookFunc, ok := sendWebhookMap[adapterType]; ok {
 		return sendWebhookFunc(input, eventType)
 	} else {
-		return nil, errors.New("function not defined")
+		return nil, errors.New(fmt.Sprint("map function not defined, type: ", adapterType))
 	}
 }
