@@ -3,6 +3,7 @@ package integrations
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/nao1215/markdown"
@@ -24,9 +25,9 @@ type mattermostData struct {
 }
 
 func mattermost(input interface{}, eventType EventType) (*Webhook, error) {
-	if data, ok := input.(InputFormFinished); ok {
-		switch eventType {
-		case EventFormFinished:
+	switch eventType {
+	case EventFormFinished:
+		if data, ok := input.(InputFormFinished); ok {
 			message := &strings.Builder{}
 			md := markdown.NewMarkdown(message).
 				H2(data.FormTranslation)
@@ -80,7 +81,11 @@ func mattermost(input interface{}, eventType EventType) (*Webhook, error) {
 				},
 				Headers: nil,
 			}, nil
+		} else {
+			slog.Warn("Type assertion InputFormFinished error")
 		}
+	default:
+		slog.Warn("Unknown Event in adapters", "eventType", eventType)
 	}
 	return nil, errors.New("unknown event type")
 }
