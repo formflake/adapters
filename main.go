@@ -44,6 +44,7 @@ type InputFormFinishedNode struct {
 	ContactNode     InputContactNode
 	SelectNode      InputSelectNode
 	RatingNode      InputRatingNode
+	ChoiceNode      InputChoiceNode
 }
 
 type InputContactNode struct {
@@ -65,6 +66,14 @@ type InputRatingNode struct {
 	Elements []struct {
 		Label string `json:"label"`
 		Value int64  `json:"value"`
+	} `json:"elements"`
+}
+
+type InputChoiceNode struct {
+	Elements []struct {
+		Label       string `json:"label"`
+		AnswerShort string `json:"answerShort"`
+		AnswerLong  string `json:"answerLong"`
 	} `json:"elements"`
 }
 

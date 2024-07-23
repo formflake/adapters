@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 
 	"github.com/nao1215/markdown"
@@ -33,7 +34,8 @@ func mattermost(input interface{}, eventType EventType) (*Webhook, error) {
 		if data, ok := input.(*InputFormFinished); ok {
 			message := &strings.Builder{}
 			md := markdown.NewMarkdown(message).
-				H2(data.FormTranslation)
+				H2(data.FormTranslation).
+				PlainText("\n")
 
 			if data.Contact != nil {
 				// TODO i18n
@@ -44,16 +46,27 @@ func mattermost(input interface{}, eventType EventType) (*Webhook, error) {
 					"**Company**: "+data.Contact.Company,
 					"**Phone**: "+data.Contact.Phone,
 					"**Details**: "+data.Contact.Details,
-				)
+				).
+					PlainText("\n")
 			}
 
 			for _, node := range data.Nodes {
 				md.H3(node.NodeTranslation)
 				switch node.NodeType {
 				case 0:
+					for _, element := range node.ChoiceNode.Elements {
+						md.BulletList(element.Label)
+						if element.AnswerShort != "" {
+							md.BlueBadge(element.AnswerShort)
+						}
+						if element.AnswerLong != "" {
+							md.BlueBadge(element.AnswerLong)
+						}
+					}
+					md.PlainText("\n")
 				case 1:
-					md.H4(node.SelectNode.Label)
-					md.BulletList(node.SelectNode.Selected...)
+					md.H4(node.SelectNode.Label).
+						BulletList(node.SelectNode.Selected...).PlainText("\n")
 				case 2:
 					md.BulletList(
 						"**First name**: "+node.ContactNode.Firstname,
@@ -62,9 +75,22 @@ func mattermost(input interface{}, eventType EventType) (*Webhook, error) {
 						"**Company**: "+node.ContactNode.Company,
 						"**Phone**: "+node.ContactNode.Phone,
 						"**Details**: "+node.ContactNode.Details,
-					)
+					).PlainText("\n")
 				case 3:
+					md.H4(node.RatingNode.Label)
+					rows := [][]string{}
+					for _, element := range node.RatingNode.Elements {
+						rows = append(rows, []string{
+							element.Label,
+							strconv.FormatInt(element.Value, 10) + "/10 :star:",
+						})
+					}
+					md.Table(markdown.TableSet{
+						Header: []string{"Label", "Rating"},
+						Rows:   rows,
+					})
 				}
+				md.PlainText("\n")
 			}
 
 			md.Build()
@@ -73,8 +99,8 @@ func mattermost(input interface{}, eventType EventType) (*Webhook, error) {
 				Data: mattermostData{
 					Text: fmt.Sprintf("%s [%s](%s)", data.Title, data.LinkText, data.LinkUrl),
 					Attachments: []struct {
-						Text  string "json:\"text\""
-						Color string "json:\"color\""
+						Text  string `json:"text"`
+						Color string `json:"color"`
 					}{
 						{
 							Color: "#1B5495",
