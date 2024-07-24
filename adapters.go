@@ -89,6 +89,9 @@ func mattermost(input interface{}, eventType EventType) (*Webhook, error) {
 						Header: []string{"Label", "Rating"},
 						Rows:   rows,
 					})
+				default:
+					slog.Warn("unknown node type", "nodeType", node.NodeType, "adapter", "mattermost")
+					continue
 				}
 				md.PlainText("\n")
 			}
@@ -114,54 +117,353 @@ func mattermost(input interface{}, eventType EventType) (*Webhook, error) {
 			return nil, errors.New("type assertion failed for InputFormFinished")
 		}
 	default:
-		slog.Warn("unknown event in adapters", "eventType", eventType)
+		slog.Warn("unknown event type", "eventType", eventType, "adapter", "mattermost")
 		return nil, errors.New("unknown event type")
 	}
 }
 
-// type slackData struct {
-// 	Blocks []slackMessageBlock `json:"blocks"`
-// }
+type slackData struct {
+	Blocks []slackMessageBlock `json:"blocks"`
+}
 
-// type slackMessageBlock struct {
-// 	Type      string                     `json:"type"`
-// 	Text      slackMessageBlockText      `json:"text,omitempty"`
-// 	Accessory slackMessageBlockAccessory `json:"accessory,omitempty"`
-// }
+type slackMessageBlockType string
 
-// type slackMessageBlockText struct {
-// 	Type string `json:"type"`
-// 	Text string `json:"text"`
-// }
+const (
+	slackMessageBlockTypeSection  slackMessageBlockType = "section"
+	slackMessageBlockTypeDivider  slackMessageBlockType = "divider"
+	slackMessageBlockTypeContext  slackMessageBlockType = "context"
+	slackMessageBlockTypeImage    slackMessageBlockType = "image"
+	slackMessageBlockTypeRichText slackMessageBlockType = "rich_text"
+)
 
-// type slackMessageBlockAccessory struct {
-// 	Type     string `json:"type"`
-// 	ImageURL string `json:"image_url,omitempty"`
-// 	AltText  string `json:"alt_text,omitempty"`
-// }
+type slackMessageBlock struct {
+	Type      slackMessageBlockType       `json:"type"`
+	Text      *slackMessageBlockText      `json:"text,omitempty"`
+	Accessory *slackMessageBlockAccessory `json:"accessory,omitempty"`
+	Elements  *[]slackMessageBlockText    `json:"elements,omitempty"`
+}
 
-// func slack(input interface{}, eventType EventType) (*Webhook, error) {
-// 	switch eventType {
-// 	case EventFormFinished:
-// 		return &Webhook{
-// 			Data: slackData{
-// 				// Blocks: []slackMessageBlock{ // TODO
-// 				// 	{
-// 				// 		Type: "section",
-// 				// 		Text: slackMessageBlockText{
-// 				// 			Type: "mrkdwn",ch
-// 				// 			Text: input.Message,
-// 				// 		},
-// 				// 	},
-// 				// },
-// 			},
-// 			Headers: nil,
-// 		}, nil
-// 	}
-// 	return nil, errors.New("unknown event type")
-// }
+type slackMessageBlockTextType string
 
-// func ntfy(input *Input, eventType EventType) (*Webhook, error) {
+const (
+	slackMessageBlockTextTypeText                 slackMessageBlockTextType = "text"
+	slackMessageBlockTextTypeMarkdown             slackMessageBlockTextType = "mrkdwn"
+	slackMessageBlockTextTypePlainText            slackMessageBlockTextType = "plain_text"
+	slackMessageBlockTextTypeRichTextSection      slackMessageBlockTextType = "rich_text_section"
+	slackMessageBlockTextTypeRichTextList         slackMessageBlockTextType = "rich_text_list"
+	slackMessageBlockTextTypeRichTextPreformatted slackMessageBlockTextType = "rich_text_preformatted"
+)
+
+type slackMessageBlockElementStyle string
+
+const (
+	slackMessageBlockElementStyleBullet slackMessageBlockElementStyle = "bullet"
+)
+
+type slackMessageBlockText struct {
+	Type     slackMessageBlockTextType     `json:"type"`
+	Style    slackMessageBlockElementStyle `json:"style,omitempty"`
+	Text     string                        `json:"text,omitempty"`
+	Elements *[]slackMessageBlockText      `json:"elements,omitempty"`
+}
+
+type slackMessageBlockAccessory struct {
+	Type     string `json:"type"`
+	ImageURL string `json:"image_url,omitempty"`
+	AltText  string `json:"alt_text,omitempty"`
+}
+
+func slackBlockBulletList(title string, list []string) slackMessageBlock {
+	contactBlockElements := []slackMessageBlockText{}
+
+	for _, item := range list {
+		if item != "" {
+			contactBlockElements = append(contactBlockElements, slackMessageBlockText{
+				Type: slackMessageBlockTextTypeRichTextSection,
+				Elements: &[]slackMessageBlockText{
+					{
+						Type: slackMessageBlockTextTypeText,
+						Text: item,
+					},
+				},
+			})
+		}
+	}
+
+	contactBlock := slackMessageBlock{
+		Type: slackMessageBlockTypeRichText,
+		Elements: &[]slackMessageBlockText{
+			{
+				Type: slackMessageBlockTextTypeRichTextSection,
+				Elements: &[]slackMessageBlockText{
+					{
+						Type: slackMessageBlockTextTypeText,
+						Text: title,
+					},
+				},
+			},
+			{
+				Type:     slackMessageBlockTextTypeRichTextList,
+				Style:    slackMessageBlockElementStyleBullet,
+				Elements: &contactBlockElements,
+			},
+		},
+	}
+
+	return contactBlock
+}
+
+func slackContactBlock(title string, contact *InputContactNode) slackMessageBlock {
+	contactBlockElements := []slackMessageBlockText{}
+
+	if contact.Firstname != "" {
+		contactBlockElements = append(contactBlockElements, slackMessageBlockText{
+			Type: slackMessageBlockTextTypeRichTextSection,
+			Elements: &[]slackMessageBlockText{
+				{
+					Type: slackMessageBlockTextTypeText,
+					Text: "First name: ",
+				},
+				{
+					Type: slackMessageBlockTextTypeText,
+					Text: contact.Firstname,
+				},
+			},
+		})
+	}
+
+	if contact.Lastname != "" {
+		contactBlockElements = append(contactBlockElements, slackMessageBlockText{
+			Type: slackMessageBlockTextTypeRichTextSection,
+			Elements: &[]slackMessageBlockText{
+				{
+					Type: slackMessageBlockTextTypeText,
+					Text: "Last name: ",
+				},
+				{
+					Type: slackMessageBlockTextTypeText,
+					Text: contact.Lastname,
+				},
+			},
+		})
+	}
+
+	if contact.Email != "" {
+		contactBlockElements = append(contactBlockElements, slackMessageBlockText{
+			Type: slackMessageBlockTextTypeRichTextSection,
+			Elements: &[]slackMessageBlockText{
+				{
+					Type: slackMessageBlockTextTypeText,
+					Text: "Email address: ",
+				},
+				{
+					Type: slackMessageBlockTextTypeText,
+					Text: contact.Email,
+				},
+			},
+		})
+	}
+
+	if contact.Company != "" {
+		contactBlockElements = append(contactBlockElements, slackMessageBlockText{
+			Type: slackMessageBlockTextTypeRichTextSection,
+			Elements: &[]slackMessageBlockText{
+				{
+					Type: slackMessageBlockTextTypeText,
+					Text: "Company: ",
+				},
+				{
+					Type: slackMessageBlockTextTypeText,
+					Text: contact.Company,
+				},
+			},
+		})
+	}
+
+	if contact.Phone != "" {
+		contactBlockElements = append(contactBlockElements, slackMessageBlockText{
+			Type: slackMessageBlockTextTypeRichTextSection,
+			Elements: &[]slackMessageBlockText{
+				{
+					Type: slackMessageBlockTextTypeText,
+					Text: "Phone: ",
+				},
+				{
+					Type: slackMessageBlockTextTypeText,
+					Text: contact.Phone,
+				},
+			},
+		})
+	}
+
+	if contact.Details != "" {
+		contactBlockElements = append(contactBlockElements, slackMessageBlockText{
+			Type: slackMessageBlockTextTypeRichTextSection,
+			Elements: &[]slackMessageBlockText{
+				{
+					Type: slackMessageBlockTextTypeText,
+					Text: "Details: ",
+				},
+				{
+					Type: slackMessageBlockTextTypeText,
+					Text: contact.Details,
+				},
+			},
+		})
+	}
+
+	if title == "" {
+		title = "Contact Information"
+	}
+
+	contactBlock := slackMessageBlock{
+		Type: slackMessageBlockTypeRichText,
+		Elements: &[]slackMessageBlockText{
+			{
+				Type: slackMessageBlockTextTypeRichTextSection,
+				Elements: &[]slackMessageBlockText{
+					{
+						Type: slackMessageBlockTextTypeText,
+						Text: title,
+					},
+				},
+			},
+			{
+				Type:     slackMessageBlockTextTypeRichTextList,
+				Style:    slackMessageBlockElementStyleBullet,
+				Elements: &contactBlockElements,
+			},
+		},
+	}
+
+	return contactBlock
+}
+
+func slack(input interface{}, eventType EventType) (*Webhook, error) {
+	if input == nil {
+		return nil, errors.New("input undefined")
+	}
+	switch eventType {
+	case EventFormFinished:
+		if data, ok := input.(*InputFormFinished); ok {
+			blocks := []slackMessageBlock{
+				{
+					Type: slackMessageBlockTypeSection,
+					Text: &slackMessageBlockText{
+						Type: slackMessageBlockTextTypeMarkdown,
+						Text: fmt.Sprintf("%s <%s|%s>", data.Title, data.LinkUrl, data.LinkText),
+					},
+				},
+				{
+					Type: slackMessageBlockTypeDivider,
+				},
+			}
+
+			if data.Contact != nil {
+				blocks = append(blocks, slackContactBlock("", data.Contact))
+			}
+
+			for _, node := range data.Nodes {
+				if node.NodeTranslation == "" {
+					node.NodeTranslation = "Missing Translation"
+				}
+				switch node.NodeType {
+				case 0:
+					richTextElements := []slackMessageBlockText{
+						{
+							Type: slackMessageBlockTextTypeRichTextSection,
+							Elements: &[]slackMessageBlockText{
+								{
+									Type: slackMessageBlockTextTypeText,
+									Text: node.NodeTranslation,
+								},
+							},
+						},
+					}
+
+					for _, element := range node.ChoiceNode.Elements {
+						if element.Label == "" {
+							continue
+						}
+						richTextElements = append(richTextElements, slackMessageBlockText{
+							Type:  slackMessageBlockTextTypeRichTextList,
+							Style: slackMessageBlockElementStyleBullet,
+							Elements: &[]slackMessageBlockText{
+								{
+									Type: slackMessageBlockTextTypeRichTextSection,
+									Elements: &[]slackMessageBlockText{
+										{
+											Type: slackMessageBlockTextTypeText,
+											Text: element.Label,
+										},
+									},
+								},
+							},
+						})
+						if element.AnswerShort != "" {
+							richTextElements = append(richTextElements, slackMessageBlockText{
+								Type: slackMessageBlockTextTypeRichTextPreformatted,
+								Elements: &[]slackMessageBlockText{
+									{
+										Type: slackMessageBlockTextTypeText,
+										Text: element.AnswerShort,
+									},
+								},
+							})
+						}
+						if element.AnswerLong != "" {
+							richTextElements = append(richTextElements, slackMessageBlockText{
+								Type: slackMessageBlockTextTypeRichTextPreformatted,
+								Elements: &[]slackMessageBlockText{
+									{
+										Type: slackMessageBlockTextTypeText,
+										Text: element.AnswerLong,
+									},
+								},
+							})
+						}
+					}
+
+					richTextBlock := slackMessageBlock{
+						Type:     slackMessageBlockTypeRichText,
+						Elements: &richTextElements,
+					}
+					blocks = append(blocks, richTextBlock)
+				case 1:
+					blocks = append(blocks, slackBlockBulletList(node.SelectNode.Label, node.SelectNode.Selected))
+				case 2:
+					blocks = append(blocks, slackContactBlock(node.NodeTranslation, &node.ContactNode))
+				case 3:
+					rows := make([]string, len(node.RatingNode.Elements))
+					for idx, element := range node.RatingNode.Elements {
+						rows[idx] = fmt.Sprint(element.Label, ": ", strconv.FormatInt(element.Value, 10), "/10 ⭐")
+					}
+					blocks = append(blocks, slackBlockBulletList(node.RatingNode.Label, rows))
+				default:
+					slog.Warn("unknown node type", "nodeType", node.NodeType, "adapter", "slack")
+					continue
+				}
+				blocks = append(blocks, slackMessageBlock{
+					Type: slackMessageBlockTypeDivider,
+				})
+			}
+
+			return &Webhook{
+				Data: slackData{
+					Blocks: blocks,
+				},
+				Headers: nil,
+			}, nil
+		} else {
+			return nil, errors.New("type assertion failed for InputFormFinished")
+		}
+	default:
+		slog.Warn("unknown event type", "eventType", eventType, "adapter", "slack")
+		return nil, errors.New("unknown event type")
+	}
+}
+
+// func ntfy(input interface{}, eventType EventType) (*Webhook, error) {
 // 	switch eventType {
 // 	case EventFormFinished:
 // 		return &Webhook{

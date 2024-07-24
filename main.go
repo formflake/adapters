@@ -97,10 +97,10 @@ const (
 )
 
 var adapterDetails = IntegrationDetailMap{
-	IntegrationGeneric: {
-		Name: "Generic Webhook",
-		Icon: "logos:webhooks",
-	},
+	// IntegrationGeneric: {
+	// 	Name: "Generic Webhook",
+	// 	Icon: "logos:webhooks",
+	// },
 	IntegrationMattermost: {
 		Name: "Mattermost",
 		Icon: "logos:mattermost-icon",
@@ -109,11 +109,11 @@ var adapterDetails = IntegrationDetailMap{
 		Name: "Slack",
 		Icon: "logos:slack-icon",
 	},
-	IntegrationNtfy: {
-		Name:  "Ntfy",
-		Icon:  "simple-icons:ntfy",
-		Color: "#10b981",
-	},
+	// IntegrationNtfy: {
+	// 	Name:  "Ntfy",
+	// 	Icon:  "simple-icons:ntfy",
+	// 	Color: "#10b981",
+	// },
 }
 
 func NewIntegration() *adapterService {
@@ -127,9 +127,9 @@ func (ad *adapterData) GetIntegrationDetails() IntegrationDetailMap {
 }
 
 var sendWebhookMap = map[IntegrationType]func(input interface{}, eventType EventType) (*Webhook, error){
-	// IntegrationGeneric:    generic, // FIXME
+	// IntegrationGeneric:    generic,
 	IntegrationMattermost: mattermost,
-	// IntegrationSlack:      slack,
+	IntegrationSlack:      slack,
 	// IntegrationNtfy:       ntfy,
 }
 
