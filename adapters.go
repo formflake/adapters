@@ -575,6 +575,7 @@ func teams(input interface{}, eventType EventType) (*Webhook, error) {
 								Text:      element.AnswerShort,
 								IsVisible: true,
 								Wrap:      true,
+								IsSubtle:  true,
 							})
 						}
 						if element.AnswerLong != "" {
@@ -584,6 +585,7 @@ func teams(input interface{}, eventType EventType) (*Webhook, error) {
 								Text:      element.AnswerLong,
 								IsVisible: true,
 								Wrap:      true,
+								IsSubtle:  true,
 							})
 						}
 					}
