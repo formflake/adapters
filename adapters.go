@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/grokify/go-adaptivecards"
 	"github.com/nao1215/markdown"
 )
 
@@ -475,3 +476,210 @@ func slack(input interface{}, eventType EventType) (*Webhook, error) {
 // 	}
 // 	return nil, errors.New("unknown event type")
 // }
+
+type teamsData struct {
+	Type        string                `json:"type"`
+	Attachments []teamsDataAttachment `json:"attachments"`
+}
+
+type teamsDataAttachment struct {
+	ContentType string                     `json:"contentType"`
+	Content     adaptivecards.AdaptiveCard `json:"content"`
+	// ContentUrl string `json:"contentUrl"`
+}
+
+func teams(input interface{}, eventType EventType) (*Webhook, error) {
+	if input == nil {
+		return nil, errors.New("input undefined")
+	}
+	switch eventType {
+	case EventFormFinished:
+		card := adaptivecards.NewAdaptiveCard()
+		if data, ok := input.(*InputFormFinished); ok {
+			card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+				Type:      adaptivecards.ElementTypeTextBlock,
+				Text:      data.Title,
+				Size:      adaptivecards.FontSizeExtraLarge,
+				IsVisible: true,
+			})
+			card.Actions = []adaptivecards.Action{
+				adaptivecards.NewActionOpenUrl(data.LinkUrl, data.LinkText),
+			}
+
+			card.Schema = "" // $ sign in $schema struct tag trips convoy up
+
+			if data.Contact != nil {
+				card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+					Type:      adaptivecards.ElementTypeTextBlock,
+					Size:      adaptivecards.FontSizeMedium,
+					Text:      fmt.Sprint("**First name**: ", data.Contact.Firstname),
+					IsVisible: true,
+					Separator: true,
+				})
+				card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+					Type:      adaptivecards.ElementTypeTextBlock,
+					Size:      adaptivecards.FontSizeMedium,
+					Text:      fmt.Sprint("**Last name**: ", data.Contact.Lastname),
+					IsVisible: true,
+				})
+				card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+					Type:      adaptivecards.ElementTypeTextBlock,
+					Size:      adaptivecards.FontSizeMedium,
+					Text:      fmt.Sprint("**Email address**: ", data.Contact.Email),
+					IsVisible: true,
+				})
+				card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+					Type:      adaptivecards.ElementTypeTextBlock,
+					Size:      adaptivecards.FontSizeMedium,
+					Text:      fmt.Sprint("**Company**: ", data.Contact.Company),
+					IsVisible: true,
+				})
+				card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+					Type:      adaptivecards.ElementTypeTextBlock,
+					Size:      adaptivecards.FontSizeMedium,
+					Text:      fmt.Sprint("**Phone**: ", data.Contact.Phone),
+					IsVisible: true,
+				})
+				card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+					Type:      adaptivecards.ElementTypeTextBlock,
+					Size:      adaptivecards.FontSizeMedium,
+					Text:      fmt.Sprint("**Details**: ", data.Contact.Details),
+					IsVisible: true,
+				})
+			}
+
+			for _, node := range data.Nodes {
+				if node.NodeTranslation == "" {
+					node.NodeTranslation = "Missing Translation"
+				}
+				card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+					Type:      adaptivecards.ElementTypeTextBlock,
+					Size:      adaptivecards.FontSizeLarge,
+					Text:      node.NodeTranslation,
+					IsVisible: true,
+					Separator: true,
+				})
+				switch node.NodeType {
+				case 0:
+					for _, element := range node.ChoiceNode.Elements {
+						card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+							Type:      adaptivecards.ElementTypeTextBlock,
+							Size:      adaptivecards.FontSizeMedium,
+							Text:      fmt.Sprint("- ", element.Label),
+							IsVisible: true,
+						})
+						if element.AnswerShort != "" {
+							card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+								Type:      adaptivecards.ElementTypeTextBlock,
+								Size:      adaptivecards.FontSizeMedium,
+								Text:      element.AnswerShort,
+								IsVisible: true,
+								Wrap:      true,
+							})
+						}
+						if element.AnswerLong != "" {
+							card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+								Type:      adaptivecards.ElementTypeTextBlock,
+								Size:      adaptivecards.FontSizeMedium,
+								Text:      element.AnswerLong,
+								IsVisible: true,
+								Wrap:      true,
+							})
+						}
+					}
+				case 1:
+					card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+						Type:      adaptivecards.ElementTypeTextBlock,
+						Size:      adaptivecards.FontSizeMedium,
+						Text:      node.SelectNode.Label,
+						IsVisible: true,
+					})
+
+					for _, selected := range node.SelectNode.Selected {
+						card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+							Type:      adaptivecards.ElementTypeTextBlock,
+							Text:      fmt.Sprint("- ", selected),
+							IsVisible: true,
+						})
+					}
+
+				case 2:
+					card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+						Type:      adaptivecards.ElementTypeTextBlock,
+						Size:      adaptivecards.FontSizeMedium,
+						Text:      fmt.Sprint("**First name**: ", node.ContactNode.Firstname),
+						IsVisible: true,
+					})
+					card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+						Type:      adaptivecards.ElementTypeTextBlock,
+						Size:      adaptivecards.FontSizeMedium,
+						Text:      fmt.Sprint("**Last name**: ", node.ContactNode.Lastname),
+						IsVisible: true,
+					})
+					card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+						Type:      adaptivecards.ElementTypeTextBlock,
+						Size:      adaptivecards.FontSizeMedium,
+						Text:      fmt.Sprint("**Email address**: ", node.ContactNode.Email),
+						IsVisible: true,
+					})
+					card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+						Type:      adaptivecards.ElementTypeTextBlock,
+						Size:      adaptivecards.FontSizeMedium,
+						Text:      fmt.Sprint("**Company**: ", node.ContactNode.Company),
+						IsVisible: true,
+					})
+					card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+						Type:      adaptivecards.ElementTypeTextBlock,
+						Size:      adaptivecards.FontSizeMedium,
+						Text:      fmt.Sprint("**Phone**: ", node.ContactNode.Phone),
+						IsVisible: true,
+					})
+					card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+						Type:      adaptivecards.ElementTypeTextBlock,
+						Size:      adaptivecards.FontSizeMedium,
+						Text:      fmt.Sprint("**Details**: ", node.ContactNode.Details),
+						IsVisible: true,
+					})
+
+				case 3:
+					card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+						Type:      adaptivecards.ElementTypeTextBlock,
+						Size:      adaptivecards.FontSizeMedium,
+						Text:      node.RatingNode.Label,
+						IsVisible: true,
+					})
+
+					for _, element := range node.RatingNode.Elements {
+						card.Body = append(card.Body, adaptivecards.ElementTextBlock{
+							Type:      adaptivecards.ElementTypeTextBlock,
+							Text:      fmt.Sprintf("- %s **%d/10** ⭐", element.Label, element.Value),
+							IsVisible: true,
+						})
+					}
+
+				default:
+					slog.Warn("unknown node type", "nodeType", node.NodeType, "adapter", "teams")
+					continue
+				}
+			}
+
+			return &Webhook{
+				Data: teamsData{
+					Type: "message",
+					Attachments: []teamsDataAttachment{
+						{
+							ContentType: "application/vnd.microsoft.card.adaptive",
+							Content:     *card,
+						},
+					},
+				},
+				Headers: nil,
+			}, nil
+		} else {
+			return nil, errors.New("type assertion failed for InputFormFinished")
+		}
+	default:
+		slog.Warn("unknown event type", "eventType", eventType, "adapter", "slack")
+		return nil, errors.New("unknown event type")
+	}
+}

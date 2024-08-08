@@ -22,6 +22,7 @@ type adapterDetail struct {
 	Name  string
 	Icon  string
 	Color string
+	Help  string
 }
 
 type IntegrationDetailMap map[IntegrationType]adapterDetail
@@ -89,9 +90,10 @@ const (
 	IntegrationMattermost IntegrationType = 1
 	IntegrationSlack      IntegrationType = 2
 	IntegrationNtfy       IntegrationType = 3
+	IntegrationTeams      IntegrationType = 4
 
 	MinTypeID int64 = int64(IntegrationGeneric)
-	MaxTypeID int64 = int64(IntegrationNtfy)
+	MaxTypeID int64 = int64(IntegrationTeams)
 
 	EventFormFinished EventType = "form.finished"
 )
@@ -104,16 +106,23 @@ var adapterDetails = IntegrationDetailMap{
 	IntegrationMattermost: {
 		Name: "Mattermost",
 		Icon: "logos:mattermost-icon",
+		Help: "https://developers.mattermost.com/integrate/webhooks/incoming/#create-an-incoming-webhook",
 	},
 	IntegrationSlack: {
 		Name: "Slack",
 		Icon: "logos:slack-icon",
+		Help: "https://api.slack.com/messaging/webhooks",
 	},
 	// IntegrationNtfy: {
 	// 	Name:  "Ntfy",
 	// 	Icon:  "simple-icons:ntfy",
 	// 	Color: "#10b981",
 	// },
+	IntegrationTeams: {
+		Name: "Teams",
+		Icon: "logos:microsoft-teams",
+		Help: "https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook",
+	},
 }
 
 func NewIntegration() *adapterService {
@@ -131,6 +140,7 @@ var sendWebhookMap = map[IntegrationType]func(input interface{}, eventType Event
 	IntegrationMattermost: mattermost,
 	IntegrationSlack:      slack,
 	// IntegrationNtfy:       ntfy,
+	IntegrationTeams: teams,
 }
 
 func (ad *adapterData) MapWebhook(input interface{}, adapterType IntegrationType, eventType EventType) (*Webhook, error) {
